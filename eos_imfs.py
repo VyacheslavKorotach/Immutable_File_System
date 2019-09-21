@@ -22,9 +22,14 @@ class EosFile:
     def ping(self):
         print("I'm here")
 
-    def put_file(self, file_name: str) -> bool:
-        pass
-        return False
+    def put_file(self) -> int:
+        '''
+        :return: block number of file header block
+        '''
+        fb = open(f'{self.path}/{self.file_name}', 'rb')
+        print('file content = ', fb.read())
+        fb.close()
+        return 0
 
     def get_file(self, account: str, file_name: str, path: str) -> str:
         pass
