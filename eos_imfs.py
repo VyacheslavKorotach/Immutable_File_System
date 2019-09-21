@@ -9,6 +9,8 @@ import requests
 import base64
 
 eos_endpoint = 'https://eosbp.atticlab.net'
+
+
 # imfs_provider_account = 'wealthysnake'
 # active_privat_key = os.environ['IMFS_PROVIDER_PRIVAT_KEY']
 
@@ -59,14 +61,27 @@ class EosFile:
             else:
                 return 0
             time.sleep(1)
+        self.update_dir(block_num)
         return block_num
 
     def get_file(self, head_block: int) -> str:
         pass
         return ''
 
-    def get_dir(self, account: str):
-        pass
+    def get_dir(self):
+        return {}
+
+    def update_dir(self, head_block: int):
+        cur_dir = self.get_dir()
+        upd_dir = cur_dir
+        if cur_dir == {}:
+            upd_dir = {
+                "imfs": "v_0.1",
+                "next_dir": 0
+            }
+        upd_dir[self.file_name] = head_block
+        print(str(upd_dir))
+        return self.__send_block(str(upd_dir))
 
     def get_all_files(self, account: str, path: str) -> int:
         '''
