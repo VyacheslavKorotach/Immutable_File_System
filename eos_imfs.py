@@ -13,7 +13,7 @@ eos_endpoint = 'https://eos.greymass.com:443'
 # eos_endpoint = 'https://eosapi.blockmatrix.network:443'
 # eos_endpoint = 'https://eu1.eosdac.io:443'
 
-depth = 33
+#depth = 333
 
 
 # imfs_provider_account = 'wealthysnake'
@@ -33,7 +33,7 @@ class EosDir:
 
     def get_dir(self) -> int:
         # return {}
-        memos = self.__get_last_actions()
+        memos = self.__get_last_actions(333)
         # memos.reverse()
         f_count = 0
         for m in memos:
@@ -51,7 +51,7 @@ class EosDir:
                     return f_count
         return 0
 
-    def __get_last_actions(self):
+    def __get_last_actions(self, depth: int):
         out = {}
         ce = Cleos(url=eos_endpoint)
         actions = ce.get_actions(self.account, pos=-1, offset=-depth)
@@ -110,7 +110,7 @@ class EosFile:
         block_size = 200
         fb = open(f'{self.path}/{self.file_name}', 'rb')
         fc = fb.read()
-        print('file content = ', fc)
+        #print('file content = ', fc)
         fb.close()
         fc_encoded = self.__encode_str(fc)
         block_num = 0
@@ -124,19 +124,19 @@ class EosFile:
             data_json = f'{{"file":"{self.file_name}","next_block":{block_num},"data":"{data_block}"}}'
             ret = self.__send_block(data_json)
             if ('transaction_id' in ret):
-                print(ret)
+                #print(ret)
                 glob_block = ret['processed']['block_num']
                 # block_num = 0
                 l1 = 0
                 while l1 == 0:
                     # time.sleep(1)
-                    memos = self.__get_last_actions()
+                    memos = self.__get_last_actions(15)
                     for m in memos:
                         if ('memo' in m):
                             memo_in = m['memo']
                             if self.__is_json(memo_in):
                                 memo_d = json.loads(memo_in)
-                                print('memo_d =', memo_d)
+                                #print('memo_d =', memo_d)
                                 if 'data' in memo_d:
                                     if memo_d['data'].find(data_block) != -1:
                                         # print('glob_block = ', glob_block, ' m[glob_num] = ', m['glob_num'])
@@ -171,6 +171,7 @@ class EosFile:
                     memo_d = json.loads(memo_l)
                     r_data = memo_d['data'] + r_data
                     n_block = memo_d['next_block']
+                    print('next_block is: ', n_block)
                     #print(r_data)
             dec_data = self.__decode_str(r_data)
             #print(dec_data)
@@ -182,7 +183,7 @@ class EosFile:
 
     def get_dir(self):
         #return {}
-        memos = self.__get_last_actions()
+        memos = self.__get_last_actions(333)
         # memos.reverse()
         for m in memos:
             memo = m['memo']
@@ -195,6 +196,7 @@ class EosFile:
     def update_dir(self, head_block: int):
         cur_dir = self.get_dir()
         upd_dir = cur_dir
+        print('update_dir -> cur_dir: ', upd_dir)
         if cur_dir == {}:
             upd_dir = {
                 "imfs": "v_0.1",
@@ -260,7 +262,7 @@ class EosFile:
         else:
             return ''
 
-    def __get_last_actions(self):
+    def __get_last_actions(self, depth: int):
         out = {}
         ce = Cleos(url=eos_endpoint)
         actions = ce.get_actions(self.account, pos=-1, offset=-depth)
