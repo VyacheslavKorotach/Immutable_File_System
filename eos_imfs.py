@@ -9,6 +9,7 @@ import requests
 import base64
 
 eos_endpoint = 'https://eosbp.atticlab.net'
+depth = 33
 
 
 # imfs_provider_account = 'wealthysnake'
@@ -69,6 +70,14 @@ class EosFile:
         return ''
 
     def get_dir(self):
+        memos = self.__get_last_actions()
+        memos.reverse()
+        for m in memos:
+            memo = m['memo']
+            if self.__is_json(memo):
+                memo_d = json.loads(memo)
+                if ('imfs' in memo_d.keys()):
+                    return memo_d
         return {}
 
     def update_dir(self, head_block: int):
@@ -80,6 +89,7 @@ class EosFile:
                 "next_dir": 0
             }
         upd_dir[self.file_name] = head_block
+        upd_dir = json.dumps(upd_dir)
         print(str(upd_dir))
         return self.__send_block(str(upd_dir))
 
@@ -89,9 +99,14 @@ class EosFile:
         '''
         pass
 
+    def __is_json(self, myjson):
+        try:
+            json_object = json.loads(myjson)
+        except ValueError:
+            return False
+        return True
+
     def __encode_str(self, bytes_to_encode) -> str:
-        # s0 = string_to_encode
-        # b1 = base64.b64encode(bytes(s0, 'utf-8'))
         b1 = base64.b64encode(bytes_to_encode)
         s1 = b1.decode('utf-8')
         print(s1)
@@ -133,3 +148,26 @@ class EosFile:
             return resp
         else:
             return ''
+
+    def __get_last_actions(self):
+        out = {}
+        ce = Cleos(url=eos_endpoint)
+        actions = ce.get_actions(self.account, pos=-1, offset=-depth)
+        if 'actions' in actions.keys():
+            out = actions['actions']
+        memos = []
+        for s in out:
+            receiver = s['action_trace']['receipt']['receiver']
+            data = s['action_trace']['act']['data']
+            if s['action_trace']['act']['name'] == 'transfer' \
+                    and receiver == self.account \
+                    and 'to' in data.keys() \
+                    and data['to'] == self.account \
+                    and 'from' in data.keys() \
+                    and 'quantity' in data.keys() \
+                    and (data['quantity'].find('EOS') != -1 or data['quantity'].find('KNYGA') != -1):
+                data['recv_sequence'] = s['action_trace']['receipt']['recv_sequence']
+                data['account'] = s['action_trace']['act']['account']
+                memos.append(data)
+        # memos.reverse()
+        return memos
