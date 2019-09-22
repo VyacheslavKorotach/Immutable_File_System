@@ -103,18 +103,11 @@ class EosFile:
                 if 'actions' in actions.keys():
                     out = actions['actions']
                 for s in out:
-                    #print('s = ', s)
-                    #print(s['action_trace'])
                     memo_l = (s['action_trace']['act']['data']['memo'])
                     memo_d = json.loads(memo_l)
-                    #print(memo_d['data'])
                     r_data = memo_d['data'] + r_data
                     n_block = memo_d['next_block']
                     print(r_data)
-                #block = ce.get_block(head_block)
-                #print(block)
-                #for i in block:
-                #    print(i)
             dec_data = self.__decode_str(r_data)
             print(dec_data)
         else:
@@ -167,7 +160,6 @@ class EosFile:
     def __decode_str(self, encoded_data: str):
         b1 = base64.b64decode(encoded_data)
         # s2 = base64.b64decode(encoded_data).decode("utf-8", "ignore")
-        # print(b1)
         return b1
 
     def __send_block(self, memo: str):
