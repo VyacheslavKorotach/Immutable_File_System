@@ -9,6 +9,10 @@ import requests
 import base64
 
 eos_endpoint = 'https://eosbp.atticlab.net'
+eos_endpoint = 'https://eos.greymass.com:443'
+#eos_endpoint = 'https://eosapi.blockmatrix.network:443'
+#eos_endpoint = 'https://eu1.eosdac.io:443'
+
 depth = 33
 
 
@@ -33,6 +37,8 @@ class EosFile:
     def ping(self):
         print("I'm here")
 
+
+    @property
     def put_file(self) -> int:
         '''
         :return: block number of file header block
@@ -52,26 +58,49 @@ class EosFile:
             else:
                 data_block = fc_encoded[:len(fc_encoded)]
                 fc_encoded = fc_encoded[len(fc_encoded):]
-            print(data_block)
             data_json = f'{{"file":"{self.file_name}","next_block":{block_num},"data":"{data_block}"}}'
             ret = self.__send_block(data_json)
             if ('transaction_id' in ret):
                 print(ret)
-                block_num = ret['processed']['block_num']
-                print(block_num)
+                block_num = 0
+                while block_num == 0:
+                    #time.sleep(1)
+                    memos = self.__get_last_actions()
+                    for m in memos:
+                        if ('memo' in m):
+                            memo_in = m['memo']
+                            if self.__is_json(memo_in):
+                                memo_d = json.loads(memo_in)
+                                if 'data' in memo_d:
+                                    if memo_d['data'].find(data_block) != -1:
+                                        block_num = m['block_num']
+                print('block_num = ', block_num)
             else:
                 return 0
             time.sleep(1)
         self.update_dir(block_num)
         return block_num
 
-    def get_file(self, head_block: int) -> str:
-        pass
-        return ''
+    def get_file(self) -> str:
+        ce = Cleos(url=eos_endpoint)
+        dir = self.get_dir()
+        if dir == {}:
+            return ''
+        if self.file_name in dir.keys():
+            head_block = dir[self.file_name]
+            print(head_block)
+            block = ce.get_block(head_block)
+            print(block)
+            for i in block:
+                print(i)
+        else:
+            return ''
+
 
     def get_dir(self):
+        return {}
         memos = self.__get_last_actions()
-        memos.reverse()
+        # memos.reverse()
         for m in memos:
             memo = m['memo']
             if self.__is_json(memo):
@@ -168,6 +197,53 @@ class EosFile:
                     and (data['quantity'].find('EOS') != -1 or data['quantity'].find('KNYGA') != -1):
                 data['recv_sequence'] = s['action_trace']['receipt']['recv_sequence']
                 data['account'] = s['action_trace']['act']['account']
+                block_n = s['account_action_seq']
+                data['block_num'] = block_n
                 memos.append(data)
-        # memos.reverse()
+        memos.reverse()
         return memos
+
+    def test_send(self):
+        ce = eospy.cleos.Cleos(url=eos_endpoint)
+
+        arguments = {
+            "from": self.sender_account,  # sender
+            "to": self.account,  # receiver
+            "quantity": '0.0001 EOS',  # In EOS
+            "memo": "memo 1213",
+        }
+        payload = {
+            "account": "eosio.token",
+            "name": "transfer",
+            "authorization": [{
+                "actor": self.sender_account,
+                "permission": 'active',
+            }],
+        }
+        #Converting payload to binary
+        data = ce.abi_json_to_bin(payload['account'], payload['name'], arguments)
+        #Inserting payload binary form as "data" field in original payload
+        payload['data'] = data['binargs']
+        #final transaction formed
+        trx = {"actions": [payload]}
+        import datetime as dt
+        trx['expiration'] = str(
+            (dt.datetime.utcnow() + dt.timedelta(seconds=60)).replace(tzinfo=pytz.UTC))
+        # use a string or EOSKey for push_transaction
+        key1 = self.sender_privat_key
+        # use EOSKey:
+        key = eospy.keys.EOSKey(self.sender_privat_key)
+        resp = ce.push_transaction(trx, key, broadcast=True)
+        print('------------------------------------------------')
+        print(resp)
+        print('------------------------------------------------')
+
+
+    def get_last(self):
+        out = {}
+        ce = Cleos(url=eos_endpoint)
+        #actions = ce.get_actions(self.account, pos=-1, offset=-depth)
+        actions = ce.get_actions(self.account, pos=-1, offset=-1)
+        print(actions)
+        if 'actions' in actions.keys():
+            out = actions['actions']
