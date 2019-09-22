@@ -102,7 +102,6 @@ class EosFile:
     def ping(self):
         print("I'm here")
 
-    @property
     def put_file(self) -> int:
         '''
         :return: block number of file header block
@@ -172,9 +171,9 @@ class EosFile:
                     memo_d = json.loads(memo_l)
                     r_data = memo_d['data'] + r_data
                     n_block = memo_d['next_block']
-                    print(r_data)
+                    #print(r_data)
             dec_data = self.__decode_str(r_data)
-            print(dec_data)
+            #print(dec_data)
             fb = open(f'{self.path}/{self.file_name}', 'wb')
             fb.write(dec_data)
             fb.close()
@@ -182,7 +181,7 @@ class EosFile:
             return ''
 
     def get_dir(self):
-        # return {}
+        #return {}
         memos = self.__get_last_actions()
         # memos.reverse()
         for m in memos:
