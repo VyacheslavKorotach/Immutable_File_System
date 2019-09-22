@@ -10,8 +10,8 @@ import base64
 
 eos_endpoint = 'https://eosbp.atticlab.net'
 eos_endpoint = 'https://eos.greymass.com:443'
-#eos_endpoint = 'https://eosapi.blockmatrix.network:443'
-#eos_endpoint = 'https://eu1.eosdac.io:443'
+# eos_endpoint = 'https://eosapi.blockmatrix.network:443'
+# eos_endpoint = 'https://eu1.eosdac.io:443'
 
 depth = 33
 
@@ -37,7 +37,6 @@ class EosFile:
     def ping(self):
         print("I'm here")
 
-
     @property
     def put_file(self) -> int:
         '''
@@ -62,8 +61,10 @@ class EosFile:
             ret = self.__send_block(data_json)
             if ('transaction_id' in ret):
                 print(ret)
-                block_num = 0
-                while block_num == 0:
+                glob_block = ret['processed']['block_num']
+                #block_num = 0
+                l1 = 0
+                while l1 == 0:
                     #time.sleep(1)
                     memos = self.__get_last_actions()
                     for m in memos:
@@ -71,9 +72,14 @@ class EosFile:
                             memo_in = m['memo']
                             if self.__is_json(memo_in):
                                 memo_d = json.loads(memo_in)
+                                print('memo_d =', memo_d)
                                 if 'data' in memo_d:
                                     if memo_d['data'].find(data_block) != -1:
-                                        block_num = m['block_num']
+                                    #print('glob_block = ', glob_block, ' m[glob_num] = ', m['glob_num'])
+                                    #if glob_block == m['glob_num'] or glob_block == m['glob_num'] + 1:
+                                        if block_num == memo_d['next_block']:
+                                            block_num = m['block_num']
+                                            l1 = block_num
                 print('block_num = ', block_num)
             else:
                 return 0
@@ -83,22 +89,39 @@ class EosFile:
 
     def get_file(self) -> str:
         ce = Cleos(url=eos_endpoint)
-        dir = self.get_dir()
-        if dir == {}:
+        dir_l = self.get_dir()
+        if dir_l == {}:
             return ''
-        if self.file_name in dir.keys():
-            head_block = dir[self.file_name]
+        if self.file_name in dir_l.keys():
+            head_block = dir_l[self.file_name]
             print(head_block)
-            block = ce.get_block(head_block)
-            print(block)
-            for i in block:
-                print(i)
+            out = {}
+            n_block = head_block
+            r_data = ''
+            while n_block != 0:
+                actions = ce.get_actions(self.account, pos=n_block, offset=0)
+                if 'actions' in actions.keys():
+                    out = actions['actions']
+                for s in out:
+                    #print('s = ', s)
+                    #print(s['action_trace'])
+                    memo_l = (s['action_trace']['act']['data']['memo'])
+                    memo_d = json.loads(memo_l)
+                    #print(memo_d['data'])
+                    r_data = memo_d['data'] + r_data
+                    n_block = memo_d['next_block']
+                    print(r_data)
+                #block = ce.get_block(head_block)
+                #print(block)
+                #for i in block:
+                #    print(i)
+            dec_data = self.__decode_str(r_data)
+            print(dec_data)
         else:
             return ''
 
-
     def get_dir(self):
-        return {}
+        #return {}
         memos = self.__get_last_actions()
         # memos.reverse()
         for m in memos:
@@ -144,7 +167,7 @@ class EosFile:
     def __decode_str(self, encoded_data: str):
         b1 = base64.b64decode(encoded_data)
         # s2 = base64.b64decode(encoded_data).decode("utf-8", "ignore")
-        print(b1)
+        # print(b1)
         return b1
 
     def __send_block(self, memo: str):
@@ -199,6 +222,7 @@ class EosFile:
                 data['account'] = s['action_trace']['act']['account']
                 block_n = s['account_action_seq']
                 data['block_num'] = block_n
+                data['glob_num'] = s['block_num']
                 memos.append(data)
         memos.reverse()
         return memos
@@ -220,11 +244,11 @@ class EosFile:
                 "permission": 'active',
             }],
         }
-        #Converting payload to binary
+        # Converting payload to binary
         data = ce.abi_json_to_bin(payload['account'], payload['name'], arguments)
-        #Inserting payload binary form as "data" field in original payload
+        # Inserting payload binary form as "data" field in original payload
         payload['data'] = data['binargs']
-        #final transaction formed
+        # final transaction formed
         trx = {"actions": [payload]}
         import datetime as dt
         trx['expiration'] = str(
@@ -238,12 +262,11 @@ class EosFile:
         print(resp)
         print('------------------------------------------------')
 
-
     def get_last(self):
         out = {}
         ce = Cleos(url=eos_endpoint)
-        #actions = ce.get_actions(self.account, pos=-1, offset=-depth)
-        actions = ce.get_actions(self.account, pos=-1, offset=-1)
+        # actions = ce.get_actions(self.account, pos=-1, offset=-depth)
+        actions = ce.get_actions(self.account, pos=6940, offset=1)
         print(actions)
         if 'actions' in actions.keys():
             out = actions['actions']
