@@ -19,6 +19,71 @@ depth = 33
 # imfs_provider_account = 'wealthysnake'
 # active_privat_key = os.environ['IMFS_PROVIDER_PRIVAT_KEY']
 
+class EosDir:
+    account = ''
+    path = ''
+    sender_account = ''
+    sender_privat_key = ''
+
+    def __init__(self, account: str, path: str, sender_account: str, sender_privat_key: str):
+        self.account = account
+        self.path = path
+        self.sender_account = sender_account
+        self.sender_privat_key = sender_privat_key
+
+    def get_dir(self) -> int:
+        # return {}
+        memos = self.__get_last_actions()
+        # memos.reverse()
+        f_count = 0
+        for m in memos:
+            memo = m['memo']
+            if self.__is_json(memo):
+                memo_d = json.loads(memo)
+                if ('imfs' in memo_d.keys()):
+                    print(memo_d)
+                    for fn in memo_d:
+                        if fn != 'imfs' and fn != 'next_dir':
+                            f_count += 1
+                            print('file_name is: ', fn, ' end_block is: ', memo_d[fn])
+                            eos_file = EosFile(self.account, self.path, fn, self.sender_account, self.sender_privat_key)
+                            eos_file.get_file()
+                    return f_count
+        return 0
+
+    def __get_last_actions(self):
+        out = {}
+        ce = Cleos(url=eos_endpoint)
+        actions = ce.get_actions(self.account, pos=-1, offset=-depth)
+        if 'actions' in actions.keys():
+            out = actions['actions']
+        memos = []
+        for s in out:
+            receiver = s['action_trace']['receipt']['receiver']
+            data = s['action_trace']['act']['data']
+            if s['action_trace']['act']['name'] == 'transfer' \
+                    and receiver == self.account \
+                    and 'to' in data.keys() \
+                    and data['to'] == self.account \
+                    and 'from' in data.keys() \
+                    and 'quantity' in data.keys() \
+                    and (data['quantity'].find('EOS') != -1 or data['quantity'].find('KNYGA') != -1):
+                data['recv_sequence'] = s['action_trace']['receipt']['recv_sequence']
+                data['account'] = s['action_trace']['act']['account']
+                block_n = s['account_action_seq']
+                data['block_num'] = block_n
+                data['glob_num'] = s['block_num']
+                memos.append(data)
+        memos.reverse()
+        return memos
+
+    def __is_json(self, myjson):
+        try:
+            json_object = json.loads(myjson)
+        except ValueError:
+            return False
+        return True
+
 
 class EosFile:
     account = ''
@@ -62,10 +127,10 @@ class EosFile:
             if ('transaction_id' in ret):
                 print(ret)
                 glob_block = ret['processed']['block_num']
-                #block_num = 0
+                # block_num = 0
                 l1 = 0
                 while l1 == 0:
-                    #time.sleep(1)
+                    # time.sleep(1)
                     memos = self.__get_last_actions()
                     for m in memos:
                         if ('memo' in m):
@@ -75,8 +140,8 @@ class EosFile:
                                 print('memo_d =', memo_d)
                                 if 'data' in memo_d:
                                     if memo_d['data'].find(data_block) != -1:
-                                    #print('glob_block = ', glob_block, ' m[glob_num] = ', m['glob_num'])
-                                    #if glob_block == m['glob_num'] or glob_block == m['glob_num'] + 1:
+                                        # print('glob_block = ', glob_block, ' m[glob_num] = ', m['glob_num'])
+                                        # if glob_block == m['glob_num'] or glob_block == m['glob_num'] + 1:
                                         if block_num == memo_d['next_block']:
                                             block_num = m['block_num']
                                             l1 = block_num
@@ -117,7 +182,7 @@ class EosFile:
             return ''
 
     def get_dir(self):
-        #return {}
+        # return {}
         memos = self.__get_last_actions()
         # memos.reverse()
         for m in memos:
