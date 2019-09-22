@@ -110,6 +110,9 @@ class EosFile:
                     print(r_data)
             dec_data = self.__decode_str(r_data)
             print(dec_data)
+            fb = open(f'{self.path}/{self.file_name}', 'wb')
+            fb.write(dec_data)
+            fb.close()
         else:
             return ''
 
